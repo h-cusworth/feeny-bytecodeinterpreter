@@ -224,8 +224,6 @@ Program* load_bytecode (char* filename) {
 //===================== PRINTING =============================
 //============================================================
 
-void print_value (Value* v);
-
 void print_value (Value* v) {
   switch(v->tag){
   case INT_VAL:{
