@@ -27,6 +27,8 @@ typedef Vector OperandStack;
 
 typedef struct {
     HashMap* globals;
+    HashMap* builtins;
+    HashMap* labels;
     Vector* constant_pool;
     Frame* current_frame;
     OperandStack* opstack;
@@ -37,7 +39,7 @@ typedef struct {
 VM* make_vm(void);
 void vm_free(VM* vm);
 
-//===================== OP METHODS ===========================
+//===================== OPCODE FUNCS =========================
 
 void op_lit(VM* vm, int idx);
 void op_printf(VM* vm, int format_idx, int nargs);
@@ -61,7 +63,7 @@ void op_drop(VM* vm);
 
 void interpret_bc (Program* prog);
 void init_global_vars(HashMap* hm, Vector* const_pool, Vector* globals);
-void parse_labels(HashMap* hm, MethodValue* method, Vector* const_pool);
+void init_labels(HashMap* hm, Vector* const_pool);
 void run_vm(VM* vm);
 
 
@@ -70,5 +72,9 @@ void run_vm(VM* vm);
 void print_stack(Frame* frame);
 void print_opstack(OperandStack* op);
 void print_const_pool(Vector* cp);
+
+
+//===================== PRINT ================================
+HashMap* make_builtins(void);
 
 #endif

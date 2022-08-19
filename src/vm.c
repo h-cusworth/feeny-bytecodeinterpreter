@@ -28,32 +28,41 @@ void frame_free(Frame* frame) {
 
 //===================== VM ================================
 
+#define LABELS_SIZE 10
+
 VM* init_vm(Program* p) {
   VM* vm = malloc(sizeof(VM));
   HashMap* globals = make_hashmap(GLOBALS_SIZE);
+  HashMap* builtins = make_builtins();
+  HashMap* labels = make_hashmap(LABELS_SIZE);
   MethodValue* entry_method = vector_get(p->values, p->entry);
   Frame* current_frame = make_frame(NULL, NULL, entry_method->nargs+entry_method->nlocals);
   OperandStack* opstack = make_vector();
   void** ip = &entry_method->code->array[0];
   
   vm->globals = globals;
+  vm->builtins = builtins;
+  vm->labels = labels;
   vm->constant_pool = p->values;
   vm->current_frame = current_frame;
   vm->opstack = opstack;
   vm->ip = ip;
   init_global_vars(vm->globals, p->values, p->slots);
+  init_labels(vm->labels, vm->constant_pool);
 
   return vm;
 }
 
 void vm_free(VM* vm) {
   hashmap_free(vm->globals);
+  // hashmap_free(vm->builtins);
+  // hashmap_free(vm->labels);
   frame_free(vm->current_frame);
   vector_free(vm->opstack);
   free(vm);
 }
 
-//===================== OP METHODS ===========================
+//===================== OPCODE FUNCS =========================
 
 void op_lit(VM* vm, int idx) {
   Value* value = vector_get(vm->constant_pool, idx);
@@ -87,18 +96,22 @@ void op_setslot(VM* vm) {
 // To do: arrays + objects
 void op_callslot(VM* vm, int method_idx, int nargs) {
   char* method_name = ((StringValue*)(vector_get(vm->constant_pool, method_idx)))->value;
-  MethodValue* method = hashmap_get(vm->globals, method_name);
+  // MethodValue* method = hashmap_get(vm->globals, method_name);
+  // printf("method name = %s", method_name);
+  // printf("method no %i", method->name);
   Vector* args = make_vector();
   for (int i=0;i<nargs-1;i++) {
     vector_add(args, vector_pop(vm->opstack));
   }
   Value* receiver = vector_pop(vm->opstack);
-  
-  // switch(receiver->tag) {
-  //   case(INT_VAL) {
-
-  //   }
-  // }
+  switch(receiver->tag) {
+    case(INT_VAL): {
+      Value* (*func)(int, int) = hashmap_get(vm->builtins, method_name);
+      Value* return_value = (*func)(((IntValue*)(receiver))->value, (int)vector_get(args, 0));
+      vector_add(vm->opstack, return_value);
+      break;
+    }
+  }
 }
 
 void op_call(VM* vm, int method_idx, int nargs) {
@@ -140,13 +153,13 @@ void op_branch(VM* vm, int method_idx) {
     return;
   }
   char* label = ((StringValue*)vector_get(vm->constant_pool, method_idx))->value;
-  void** ins = hashmap_get(vm->globals, label);
+  void** ins = hashmap_get(vm->labels, label);
   vm->ip = ins; 
 }
 
 void op_goto(VM* vm, int method_idx) {
   char* label = ((StringValue*)vector_get(vm->constant_pool, method_idx))->value;
-  void** ins = hashmap_get(vm->globals, label);
+  void** ins = hashmap_get(vm->labels, label);
   vm->ip = ins; 
 }
 
@@ -177,23 +190,22 @@ void init_global_vars(HashMap* hm, Vector* const_pool, Vector* globals) {
     char* name = ((StringValue*)vector_get(const_pool, name_idx))->value;
     hashmap_add(hm, name, val);
   }
+}
+
+void init_labels(HashMap* hm, Vector* const_pool) {
   for (int i=0;i<const_pool->size;i++) {
     Value* value = vector_get(const_pool, i);
     if (value->tag == METHOD_VAL) {
-      parse_labels(hm, (MethodValue*)value, const_pool);
+      MethodValue* method = (MethodValue*)value;
+      for (int i=0;i<method->code->size;i++) {
+        ByteIns* ins = vector_get(method->code, i);
+        if (ins->tag == LABEL_OP) {
+          char* label = ((StringValue*)(vector_get(const_pool, ((LabelIns*)ins)->name)))->value;
+          hashmap_add(hm, label, &method->code->array[i]);
+        }
+      }
     }
   }
-}
-
-void parse_labels(HashMap* hm, MethodValue* method, Vector* const_pool) {
-  for (int i=0;i<method->code->size;i++) {
-    ByteIns* ins = vector_get(method->code, i);
-    if (ins->tag == LABEL_OP) {
-      char* label = ((StringValue*)(vector_get(const_pool, ((LabelIns*)ins)->name)))->value;
-      hashmap_add(hm, label, &method->code->array[i]);
-    }
-  }
-  
 }
 
 void interpret_bc (Program* p) {
@@ -202,6 +214,9 @@ void interpret_bc (Program* p) {
   printf("\n");
 
   VM* vm = init_vm(p); 
+  // hashmap_print(vm->globals);
+  // hashmap_print(vm->labels);
+  // hashmap_print(vm->builtins);
   run_vm(vm);
   
 
@@ -222,6 +237,11 @@ void run_vm(VM* vm) {
       case LIT_OP:{
         LitIns* i = (LitIns*)ins;
         printf("   lit #%d", i->idx);
+        if (i->idx == 6) {
+          print_opstack(vm->opstack);
+          print_stack(vm->current_frame);
+          hashmap_print(vm->globals);
+        }
         op_lit(vm, i->idx);
         vm->ip++;
         break;
@@ -377,9 +397,135 @@ void print_const_pool(Vector* cp) {
   printf("\n");
 }
 
+//===================== BUILTINS ================================
+#define BUILTINS_SIZE 10
 
+Value* feeny_add(int a, int b);
+Value* feeny_sub(int a, int b);
+Value* feeny_mul(int a, int b);
+Value* feeny_div(int a, int b);
+Value* feeny_mod(int a, int b);
+Value* feeny_lt(int a, int b);
+Value* feeny_gt(int a, int b);
+Value* feeny_le(int a, int b);
+Value* feeny_ge(int a, int b);
+Value* feeny_eq(int a, int b);
 
+HashMap* make_builtins(void) {
+  HashMap* builtins = make_hashmap(BUILTINS_SIZE);
+  hashmap_add(builtins, "add", &feeny_add);
+  hashmap_add(builtins, "sub", &feeny_sub);
+  hashmap_add(builtins, "mul", &feeny_mul);
+  hashmap_add(builtins, "div", &feeny_div);
+  hashmap_add(builtins, "mod", &feeny_mod);
+  hashmap_add(builtins, "lt", &feeny_lt);
+  hashmap_add(builtins, "gt", &feeny_gt);
+  hashmap_add(builtins, "le", &feeny_le);
+  hashmap_add(builtins, "ge", &feeny_ge);
+  hashmap_add(builtins, "eq", &feeny_eq);
+  return builtins;
+}
 
+Value* feeny_add(int a, int b) {
+  IntValue* x = malloc(sizeof(IntValue));
+  x->tag = INT_VAL;
+  x->value = a + b;
+  return (Value*)x;
+}
 
+Value* feeny_sub(int a, int b) {
+  IntValue* x = malloc(sizeof(IntValue));
+  x->tag = INT_VAL;
+  x->value = a - b;
+  return (Value*)x;
+}
 
+Value* feeny_mul(int a, int b) {
+  IntValue* x = malloc(sizeof(IntValue));
+  x->tag = INT_VAL;
+  x->value = a * b;
+  return (Value*)x;
+}
 
+Value* feeny_div(int a, int b) {
+  IntValue* x = malloc(sizeof(IntValue));
+  x->tag = INT_VAL;
+  x->value = a / b;
+  return (Value*)x;
+}
+
+Value* feeny_mod(int a, int b) {
+  IntValue* x = malloc(sizeof(IntValue));
+  x->tag = INT_VAL;
+  x->value = a % b;
+  return (Value*)x;
+}
+
+Value* feeny_lt(int a, int b) {
+  if (a < b) {
+    IntValue* x = malloc(sizeof(IntValue));
+    x->tag = INT_VAL;
+    x->value = 0;
+    return (Value*)x;
+  }
+  else {
+    Value* x = malloc(sizeof(Value));
+    x->tag = NULL_VAL;
+    return x;
+  }
+}
+
+Value* feeny_gt(int a, int b) {
+  if (a > b) {
+    IntValue* x = malloc(sizeof(IntValue));
+    x->tag = INT_VAL;
+    x->value = 0;
+    return (Value*)x;
+  }
+  else {
+    Value* x = malloc(sizeof(Value));
+    x->tag = NULL_VAL;
+    return x;
+  }
+}
+
+Value* feeny_le(int a, int b) {
+  if (a <= b) {
+    IntValue* x = malloc(sizeof(IntValue));
+    x->tag = INT_VAL;
+    x->value = 0;
+    return (Value*)x;
+  }
+  else {
+    Value* x = malloc(sizeof(Value));
+    x->tag = NULL_VAL;
+    return x;
+  }
+}
+
+Value* feeny_ge(int a, int b) {
+  if (a >= b) {
+    IntValue* x = malloc(sizeof(IntValue));
+    x->tag = INT_VAL;
+    x->value = 0;
+    return (Value*)x;
+  }
+  else {
+    Value* x = malloc(sizeof(Value));
+    x->tag = NULL_VAL;
+    return x;
+  }
+}
+Value* feeny_eq(int a, int b) {
+  if (a == b) {
+    IntValue* x = malloc(sizeof(IntValue));
+    x->tag = INT_VAL;
+    x->value = 0;
+    return (Value*)x;
+  }
+  else {
+    Value* x = malloc(sizeof(Value));
+    x->tag = NULL_VAL;
+    return x;
+  }
+}

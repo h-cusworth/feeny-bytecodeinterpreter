@@ -1,0 +1,13 @@
+defn test_func (a,b) :
+    var i = 3
+    if a == 20:
+        a 
+    else:
+        b
+
+defn main () :
+    var a = 10
+    var b = 20
+    test_func(a, b)
+
+main()
