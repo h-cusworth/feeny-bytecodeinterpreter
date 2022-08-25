@@ -197,18 +197,19 @@ defn main () :
    b[8,7] = 0
    b[8,8] = 1
 
-   ;printf("=== Given Puzzle ===\n")
-   ;b.print()
+   printf("=== Given Puzzle ===\n")
+   b.print()
 
-   ;printf("\n=== Solution ===\n")
+   printf("\n=== Solution ===\n")
    b.solve()
-   ;b.print()
+   b.print()
 
-var i = 0
-while i < 200 :
-   printf("Puzzle ~\n", i)
-   main()
-   i = i + 1
+main()
+; var i = 0
+; while i < 200 :
+;    printf("Puzzle ~\n", i)
+;    main()
+;    i = i + 1
 
 
 ;============================================================

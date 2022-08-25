@@ -1,13 +1,8 @@
-defn test_func (a,b) :
-    var i = 3
-    if a == 20:
-        a 
-    else:
-        b
+defn foo () :
+   object :
+      method do-op (x, y) :
+         printf("Do a binary operation on ~ and ~.\n", x, y)
 
-defn main () :
-    var a = 10
-    var b = 20
-    test_func(a, b)
 
-main()
+var a = foo()
+a.do-op(11, 7)

@@ -266,6 +266,25 @@ void print_value (Value* v) {
     printf(")");
     break;
   }
+  case ARRAY_VAL:{
+    ArrayValue* v2 = (ArrayValue*)v;
+    printf("Array(");
+    for(int i=0;i<v2->length;i++){
+      printf("%i,", v2->value[i]);
+    }
+    printf(")");
+    break;
+  }
+  case OBJ_VAL:{
+    ObjectValue* v2 = (ObjectValue*)v;
+    printf("Object(slots:");
+    for (int i=0;i<v2->slots->size;i++) {
+      print_value(vector_get(v2->slots, i));
+      printf(", ");
+    }
+    printf(")");
+    break;
+  }
   default:
     printf("Value with unknown tag: %d\n", v->tag);
     exit(-1);

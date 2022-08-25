@@ -3,13 +3,12 @@
 
 #include "bytecode.h"
 
-
 //===================== FRAMES ===============================
 typedef struct Frame Frame;
 typedef struct Frame {
     void** return_addr;
     Frame* caller_frame;
-    void** variables;
+    Value** variables;
     size_t size;
 } Frame;
 
@@ -44,15 +43,15 @@ void vm_free(VM* vm);
 void op_lit(VM* vm, int idx);
 void op_printf(VM* vm, int format_idx, int nargs);
 void op_array(VM* vm);
-void op_object(VM* vm);
-void op_slot(VM* vm);
-void op_setslot(VM* vm);
+void op_object(VM* vm, int class_idx);
+void op_getslot(VM* vm, int idx);
+void op_setslot(VM* vm, int idx);
 void op_callslot(VM* vm, int method_idx, int nargs);
 void op_call(VM* vm, int method_idx, int nargs);
-void op_setlocal(VM* vm, int i);
-void op_getlocal(VM* vm, int i);
-void op_setglobal(VM* vm);
-void op_getglobal(VM* vm);
+void op_setlocal(VM* vm, int idx);
+void op_getlocal(VM* vm, int idx);
+void op_setglobal(VM* vm, int idx);
+void op_getglobal(VM* vm, int idx);
 void op_branch(VM* vm, int method_idx);
 void op_goto(VM* vm, int method_idx);
 Stack_State op_return(VM* vm);
@@ -74,7 +73,7 @@ void print_opstack(OperandStack* op);
 void print_const_pool(Vector* cp);
 
 
-//===================== PRINT ================================
+//===================== BUILTINS ================================
 HashMap* make_builtins(void);
 
 #endif

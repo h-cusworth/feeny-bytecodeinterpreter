@@ -12,7 +12,9 @@ typedef enum {
   STRING_VAL,
   METHOD_VAL,
   SLOT_VAL,
-  CLASS_VAL
+  CLASS_VAL,
+  ARRAY_VAL,
+  OBJ_VAL,
 } ValTag;
 
 typedef enum {
@@ -37,7 +39,6 @@ typedef enum {
 
 
 
-/// go over global variables, index into constant pool (cast to Value). Name from Value points to StringValue (which is key for hash map)
 typedef struct {
   ValTag tag;
 } Value;
@@ -69,6 +70,18 @@ typedef struct {
   ValTag tag;
   Vector* slots;
 } ClassValue;
+
+typedef struct {
+  ValTag tag;
+  int* value;
+  size_t length;
+} ArrayValue;
+
+typedef struct ObjectValue {
+  ValTag tag;
+  Vector* slots;
+  ClassValue* class;
+} ObjectValue;
 
 typedef struct {
   OpCode tag;  
